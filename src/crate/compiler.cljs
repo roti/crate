@@ -1,11 +1,14 @@
 (ns crate.compiler
   (:require [goog.dom :as gdom]
             [goog.style :as gstyle]
+            [goog.events :as gevents]
             [clojure.string :as string]
             [crate.binding :as bind]))
 
 (def xmlns {:xhtml "http://www.w3.org/1999/xhtml"
             :svg "http://www.w3.org/2000/svg"})
+
+(def dom-events {:onclick (.-CLICK gevents/EventType)})
 
 ;; ********************************************
 ;; Element creation via Hiccup-like vectors
@@ -114,15 +117,17 @@
            (dom-attr elem k v))
          elem))))
   ([elem k v]
-   (if (= k :style)
-     (dom-style elem v)
-     (let [v (if (bind/binding? v)
-               (do
-                 (capture-binding :attr [k v])
-                 (bind/value v))
-               v)]
-       (. elem (setAttribute (name k) v))))
-   elem))
+    (cond
+      (= k :style) (dom-style elem v)
+      (contains? dom-events k) (gevents/listen elem (get dom-events k) v)
+      :else (let [v (if (bind/binding? v)
+                      (do
+                        (capture-binding :attr [k v])
+                        (bind/value v))
+                      v)]
+                 (. elem (setAttribute (name k) v)))
+    )
+  elem))
 
 ;; From Weavejester's Hiccup: https://github.com/weavejester/hiccup/blob/master/src/hiccup/core.clj#L57
 (def ^{:doc "Regular expression that parses a CSS-style id and class from a tag name." :private true}
